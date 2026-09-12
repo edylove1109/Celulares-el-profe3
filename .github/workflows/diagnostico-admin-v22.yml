@@ -14,22 +14,15 @@ jobs:
           set -eux
           rm -rf /tmp/src
           unzip -q Celulares_El_Profe_V22_DOS_ADMINISTRADORES_ADMIN_CUENTA_CORREGIDO.zip -d /tmp/src
-          echo '--- ARCHIVOS KOTLIN ---'
-          find /tmp/src -type f -name '*.kt' -print
-      - name: Buscar lógica de admin cuenta actividad
-        run: |
-          set +e
-          echo '--- COINCIDENCIAS ---'
-          grep -RniE 'Role|role|admin|ADMIN|cuenta|Cuenta|deuda|Deuda|abono|Abono|actividad|Actividad|permission|permiso' /tmp/src --include='*.kt' | head -n 1200
-          echo '--- MAIN ACTIVITY ---'
-          find /tmp/src -type f -name 'MainActivity.kt' -print -exec sh -c 'nl -ba "$1" | sed -n "1,900p"' _ {} \;
       - name: Empaquetar diagnóstico
         run: |
+          set +e
           mkdir -p /tmp/report
-          grep -RniE 'Role|role|admin|ADMIN|cuenta|Cuenta|deuda|Deuda|abono|Abono|actividad|Actividad|permission|permiso' /tmp/src --include='*.kt' > /tmp/report/coincidencias.txt || true
-          find /tmp/src -type f -name '*.kt' -print > /tmp/report/archivos.txt
+          find /tmp/src -type f \( -name '*.html' -o -name '*.js' -o -name '*.kt' -o -name '*.xml' \) -print > /tmp/report/archivos.txt
+          grep -RniE 'loadAllClientAccounts|loadMyClientAccount|createClientAccount|loadActivity|isAdmin|nativeAdmin|clientAccounts|appActivity|Role|role|admin|cuenta|actividad' /tmp/src --include='*.html' --include='*.js' --include='*.kt' --include='*.xml' > /tmp/report/coincidencias.txt || true
+          find /tmp/src -type f \( -name 'index.html' -o -name '*.js' \) -print0 | while IFS= read -r -d '' f; do echo "===== $f ====="; nl -ba "$f"; done > /tmp/report/web_code.txt
           find /tmp/src -type f -name 'MainActivity.kt' -exec cp {} /tmp/report/MainActivity.kt \; || true
       - uses: actions/upload-artifact@v4
         with:
-          name: diagnostico-admin-v22
+          name: diagnostico-admin-v22-web
           path: /tmp/report
