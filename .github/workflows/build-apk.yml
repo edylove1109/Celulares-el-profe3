@@ -19,15 +19,31 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Extraer V22
+      - name: Localizar proyecto Android
         shell: bash
         run: |
           set -e
 
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'Celulares_El_Profe_V22*.zip' | head -n 1)
+          echo "=== Contenido del repositorio ==="
+          ls -lah
+
+          # Si el proyecto ya está descomprimido en la raíz
+          if [ -f "settings.gradle.kts" ] && [ -f "app/build.gradle.kts" ]; then
+            echo "Proyecto Android encontrado en la raíz."
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          # Buscar ZIP V22
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'Celulares_El_Profe_V22*.zip' | sort | tail -n 1)
+
+          # Si no hay V22, buscar V21
+          if [ -z "$ZIP_FILE" ]; then
+            ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'Celulares_El_Profe_V21*.zip' | sort | tail -n 1)
+          fi
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró el ZIP V22."
+            echo "ERROR: No se encontró el ZIP V22/V21."
             exit 1
           fi
 
@@ -38,34 +54,60 @@ jobs:
 
           unzip -q "$ZIP_FILE" -d CelularesElProfeAndroid
 
+          echo "=== Buscando proyecto Android ==="
+
           ROOT=$(find CelularesElProfeAndroid \
             -type f \
             -name settings.gradle.kts \
             -print -quit | xargs -r dirname)
 
           if [ -z "$ROOT" ]; then
-            echo "ERROR: No se encontró el proyecto Android."
+            echo "ERROR: El ZIP no contiene settings.gradle.kts"
             exit 1
           fi
 
-          echo "Proyecto encontrado: $ROOT"
+          echo "Proyecto encontrado en: $ROOT"
+
           echo "PROJECT_DIR=$ROOT" >> "$GITHUB_ENV"
 
-      - name: Configurar Gradle
+      - name: Configurar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
 
-      - name: Construir APK
+      - name: Verificar proyecto
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
           set -e
-          gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Guardar APK
+          echo "=== Proyecto ==="
+          pwd
+          echo ""
+
+          echo "=== Archivos principales ==="
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
+          test -f app/src/main/AndroidManifest.xml
+
+          echo "Proyecto Android correcto."
+
+      - name: Generar APK V22
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -e
+
+          echo "=== Generando APK ==="
+
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+      - name: Subir APK
         uses: actions/upload-artifact@v4
         with:
-          name: Celulares-El-Profe-V22
+          name: Celulares-El-Profe-APK-V22
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
