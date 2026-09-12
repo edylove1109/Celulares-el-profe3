@@ -27,35 +27,28 @@ jobs:
           echo "=== Contenido del repositorio ==="
           ls -lah
 
-          # Si el proyecto ya está descomprimido en la raíz
           if [ -f "settings.gradle.kts" ] && [ -f "app/build.gradle.kts" ]; then
             echo "Proyecto Android encontrado en la raíz."
             echo "PROJECT_DIR=." >> "$GITHUB_ENV"
             exit 0
           fi
 
-          # Buscar ZIP V22
-          ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'Celulares_El_Profe_V22*.zip' | sort | tail -n 1)
+          # Usar explícitamente la versión V22 que corrige los 2 administradores,
+          # actividad y permisos. No elegir ZIP por orden alfabético.
+          ZIP_FILE="./Celulares_El_Profe_V22_DOS_ADMINISTRADORES_ACTIVIDAD_Y_PERMISOS_CORREGIDO.zip"
 
-          # Si no hay V22, buscar V21
-          if [ -z "$ZIP_FILE" ]; then
-            ZIP_FILE=$(find . -maxdepth 1 -type f -iname 'Celulares_El_Profe_V21*.zip' | sort | tail -n 1)
-          fi
-
-          if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: No se encontró el ZIP V22/V21."
+          if [ ! -f "$ZIP_FILE" ]; then
+            echo "ERROR: No se encontró el paquete V22 corregido de 2 administradores."
             exit 1
           fi
 
-          echo "ZIP encontrado: $ZIP_FILE"
+          echo "ZIP seleccionado: $ZIP_FILE"
 
           rm -rf CelularesElProfeAndroid
           mkdir -p CelularesElProfeAndroid
-
           unzip -q "$ZIP_FILE" -d CelularesElProfeAndroid
 
           echo "=== Buscando proyecto Android ==="
-
           ROOT=$(find CelularesElProfeAndroid \
             -type f \
             -name settings.gradle.kts \
@@ -67,7 +60,6 @@ jobs:
           fi
 
           echo "Proyecto encontrado en: $ROOT"
-
           echo "PROJECT_DIR=$ROOT" >> "$GITHUB_ENV"
 
       - name: Configurar Gradle 8.9
@@ -80,17 +72,13 @@ jobs:
         shell: bash
         run: |
           set -e
-
           echo "=== Proyecto ==="
           pwd
-          echo ""
-
           echo "=== Archivos principales ==="
           test -f settings.gradle.kts
           test -f build.gradle.kts
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
-
           echo "Proyecto Android correcto."
 
       - name: Generar APK V22
@@ -98,12 +86,8 @@ jobs:
         shell: bash
         run: |
           set -e
-
-          echo "=== Generando APK ==="
-
-          gradle :app:assembleDebug \
-            --no-daemon \
-            --stacktrace
+          echo "=== Generando APK V22 ==="
+          gradle :app:assembleDebug --no-daemon --stacktrace
 
       - name: Subir APK
         uses: actions/upload-artifact@v4
