@@ -2,9 +2,11 @@ name: Build APK V22 Fix 2
 
 on:
   push:
-    paths:
-      - '.github/workflows/build-apk-v22-fix2.yml'
+    branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -20,6 +22,7 @@ jobs:
       - name: Locate and extract V22 source
         shell: bash
         run: |
+          set -e
           ZIP="./Celulares_El_Profe_V22_DOS_ADMINISTRADORES_ACTIVIDAD_Y_PERMISOS_CORREGIDO.zip"
           test -f "$ZIP"
           rm -rf buildsrc
@@ -28,9 +31,10 @@ jobs:
           ROOT=$(find buildsrc -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)
           test -n "$ROOT"
           echo "PROJECT_ROOT=$ROOT" >> "$GITHUB_ENV"
-      - name: Fix all invalid exception code references
+      - name: Fix exception references
         shell: bash
         run: |
+          set -e
           FILE=$(find "$PROJECT_ROOT/app/src/main/java" -name MainActivity.kt -print -quit)
           test -n "$FILE"
           python3 - "$FILE" <<'PY'
@@ -42,7 +46,7 @@ s = s.replace('error.errorCode', 'error.message ?: "Error"')
 s = s.replace('error.code', 'error.message ?: "Error"')
 p.write_text(s, encoding='utf-8')
 PY
-          echo "=== Verificación de referencias inválidas ==="
+          echo "=== MainActivity referencias inválidas ==="
           grep -nE 'error\.(code|errorCode)' "$FILE" || true
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
