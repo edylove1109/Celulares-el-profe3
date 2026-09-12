@@ -28,7 +28,7 @@ jobs:
           ROOT=$(find buildsrc -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit | xargs -r dirname)
           test -n "$ROOT"
           echo "PROJECT_ROOT=$ROOT" >> "$GITHUB_ENV"
-      - name: Fix Firebase exception properties
+      - name: Fix all invalid exception code references
         shell: bash
         run: |
           FILE=$(find "$PROJECT_ROOT/app/src/main/java" -name MainActivity.kt -print -quit)
@@ -38,13 +38,12 @@ import sys
 from pathlib import Path
 p = Path(sys.argv[1])
 s = p.read_text(encoding='utf-8')
-# FirebaseException exposes message; this removes invalid .code/.errorCode references.
-s = s.replace('${error.errorCode}', '${error.message ?: "Error"}')
-s = s.replace('${error.code}', '${error.message ?: "Error"}')
+s = s.replace('error.errorCode', 'error.message ?: "Error"')
+s = s.replace('error.code', 'error.message ?: "Error"')
 p.write_text(s, encoding='utf-8')
 PY
-          echo "=== Verificación de referencias .code/.errorCode ==="
-          grep -nE '\.(code|errorCode)' "$FILE" || true
+          echo "=== Verificación de referencias inválidas ==="
+          grep -nE 'error\.(code|errorCode)' "$FILE" || true
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
