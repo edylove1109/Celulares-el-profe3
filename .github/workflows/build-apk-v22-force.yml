@@ -6,6 +6,7 @@ on:
       - '.github/workflows/build-apk-v22-force.yml'
   workflow_dispatch:
 
+# FINAL V22 BUILD - two-admin permissions/activity/accounts correction
 jobs:
   build:
     runs-on: ubuntu-latest
