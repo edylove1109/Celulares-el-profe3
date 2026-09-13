@@ -1,0 +1,82 @@
+name: Build APK - Admin Principal Final
+
+on:
+  push:
+    branches: [fix-admin-principal-juancarlos]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Locate and extract V22 source
+        run: |
+          set -e
+          ZIP="Celulares_El_Profe_V22_DOS_ADMINISTRADORES_FINAL_2_ADMINS_CUENTAS_ACTIVIDAD.zip"
+          test -f "$ZIP"
+          rm -rf /tmp/cep
+          mkdir -p /tmp/cep
+          unzip -q "$ZIP" -d /tmp/cep
+          test -f /tmp/cep/settings.gradle.kts
+          test -f /tmp/cep/app/build.gradle.kts
+          cp -a /tmp/cep/. .
+
+      - name: Set primary admin and fix Kotlin compile error
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          email = 'juancarlospelayolepe7@gmail.com'
+          p = Path('app/src/main/java/com/celulareselprofe/app/MainActivity.kt')
+          s = p.read_text()
+          s = s.replace('val isAdmin = roleLower == "admin" || roleUpper == "admin"', 'val isAdmin = roleLower == "admin" || roleUpper == "admin" || user.email?.equals("juancarlospelayolepe7@gmail.com", ignoreCase = true) == true')
+          s = s.replace('adminRole = role1.equals("admin", ignoreCase = true) || role2.equals("admin", ignoreCase = true)', 'adminRole = role1.equals("admin", ignoreCase = true) || role2.equals("admin", ignoreCase = true) || email.equals("juancarlospelayolepe7@gmail.com", ignoreCase = true)')
+          s = s.replace('error.code', 'error.message')
+          p.write_text(s)
+
+          r = Path('firestore/firestore.rules')
+          rs = r.read_text()
+          old = """function isAdmin() {
+  return signedIn() &&
+    (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'Admin', 'ADMIN'] ||
+     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.Role in ['admin', 'Admin', 'ADMIN']);
+}"""
+          new = """function isAdmin() {
+  return signedIn() &&
+    (request.auth.token.email == 'juancarlospelayolepe7@gmail.com' ||
+     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'Admin', 'ADMIN'] ||
+     get(/databases/$(database)/documents/users/$(request.auth.uid)).data.Role in ['admin', 'Admin', 'ADMIN']);
+}"""
+          if old not in rs:
+              raise SystemExit('No se encontró la función isAdmin esperada en Firestore rules')
+          r.write_text(rs.replace(old, new))
+          PY
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build installable debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Verify APK exists
+        run: |
+          set -e
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          ls -lh "$APK"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Celulares-El-Profe-APK-Admin-Principal-Final
+          path: app/build/outputs/apk/debug/app-debug.apk
