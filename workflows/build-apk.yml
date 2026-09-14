@@ -79,11 +79,4 @@ jobs:
         with:
           name: V23-log-compilacion
           path: kotlin-build.log
-          if-no-files-found: ignore
-
-      - name: Subir APK V23
-        uses: actions/upload-artifact@v4
-        with:
-          name: Celulares-El-Profe-APK-V23
-          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found:
