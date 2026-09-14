@@ -1,0 +1,89 @@
+name: Generar APK V23
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Localizar proyecto Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== Contenido de la raíz ==="
+          ls -la
+          if [ -f "settings.gradle.kts" ] && [ -f "app/build.gradle.kts" ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          else
+            ZIP_FILE=$(find . -maxdepth 1 -type f \( -iname 'Celulares_El_Profe_V2*.zip' -o -iname 'Celulares_El_Profe_V23*.zip' \) | sort | tail -n 1 || true)
+            if [ -z "$ZIP_FILE" ]; then
+              echo "ERROR: No se encontró el ZIP ni un proyecto Android en la raíz."
+              exit 1
+            fi
+            echo "Usando ZIP: $ZIP_FILE"
+            rm -rf CelularesElProfeAndroid
+            mkdir CelularesElProfeAndroid
+            unzip -q "$ZIP_FILE" -d CelularesElProfeAndroid
+            ROOT=$(find CelularesElProfeAndroid -name settings.gradle.kts -type f -print -quit | xargs -r dirname)
+            if [ -z "$ROOT" ]; then
+              echo "ERROR: No se encontró settings.gradle.kts dentro del ZIP."
+              exit 1
+            fi
+            echo "PROJECT_DIR=$ROOT" >> "$GITHUB_ENV"
+          fi
+
+      - name: Verificar proyecto
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/src/main/java/com/celulareselprofe/app/MainActivity.kt"
+          echo "=== Versión ==="
+          grep -n "versionCode\|versionName" "$PROJECT_DIR/app/build.gradle.kts"
+          echo "=== Administrador ==="
+          grep -n "adminRole\|isAdmin()" "$PROJECT_DIR/app/src/main/java/com/celulareselprofe/app/MainActivity.kt"
+
+      - name: Instalar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Instalar Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Compilar Kotlin con diagnóstico completo
+        working-directory: ${{ env.PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle :app:compileDebugKotlin --no-daemon --stacktrace --info --console=plain 2>&1 | tee "$GITHUB_WORKSPACE/kotlin-build.log"
+          echo "=== DIAGNOSTICO KOTLIN ==="
+          grep -nE "e: |error:|w: |MainActivity\.kt:[0-9]+|Caused by:" "$GITHUB_WORKSPACE/kotlin-build.log" || true
+
+      - name: Generar APK V23
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Subir log de compilación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V23-log-compilacion
+          path: kotlin-build.log
+          if-no-files-found: ignore
+
+      - name: Subir APK V23
+        uses: actions/upload-artifact@v4
+        with:
+          name: Celulares-El-Profe-APK-V23
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
