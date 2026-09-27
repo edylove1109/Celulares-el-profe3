@@ -65,4 +65,24 @@ jobs:
         run: |
           set -o pipefail
           gradle :app:compileDebugKotlin --no-daemon --stacktrace --info --console=plain 2>&1 | tee "$GITHUB_WORKSPACE/kotlin-build.log"
-          echo "=== DIAGNOSTICO
+          echo "=== DIAGNOSTICO KOTLIN ==="
+          grep -nE "e: |error:|w: |MainActivity\.kt:[0-9]+|Caused by:" "$GITHUB_WORKSPACE/kotlin-build.log" || true
+
+      - name: Generar APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Subir log de compilación
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: V23-log-compilacion
+          path: kotlin-build.log
+          if-no-files-found: ignore
+
+      - name: Subir APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Celulares-El-Profe-APK-V23
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
