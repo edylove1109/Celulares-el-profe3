@@ -61,14 +61,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Instalar Android SDK
+      - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'tools platform-tools platforms;android-35 build-tools;35.0.0'
+          log-accepted-android-sdk-licenses: true
+          packages: ''
 
-      - name: Aceptar licencias Android
+      - name: Instalar componentes del SDK
+        shell: bash
         run: |
-          yes | sdkmanager --licenses || true
+          set -euo pipefail
+          # Aceptar licencias de forma segura (no falla si ya están aceptadas)
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          # Instalar lo necesario
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" || \
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
 
       - name: Instalar Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
